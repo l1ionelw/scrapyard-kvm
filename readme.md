@@ -11,7 +11,7 @@ KVM stands for **Keyboard, Video, Mouse**. A KVM system allows a you to control 
 ---
 
 ## FYI
-This project was made by me (l1ionelw) to troubleshoot and easy access to my server PC. The materials required may cost more than a traditional kvm (jetkvm). However it IS open source (so is jetkvm). But its more easy to modify if you want a custom setup or smh, idc.
+This project was made by me (l1ionelw) for my lazy bum to troubleshoot and easily access to my server PC with the things I had lying around, pieced together like lego pieces (hence the name scrapyard). The materials required may (probably do) cost more than a traditional kvm (JetKVM). However it IS open source (so is jetkvm). But its more easy to modify if you want a custom setup or smh, idrk & idrc. 
 
 ## Project Overview
 
@@ -19,15 +19,14 @@ Scrapyard KVM works by connecting your server PC to a capture card via HDMI. The
 
 **Hardware Requirements:**
 
-- Server PC with GPU output (HDMI)
-- HDMI Capture Card (tested with EVGA XR1 Lite)
+- Server PC or laptop with output port (HDMI, DisplayPort, etc)
+- Capture Card (tested with EVGA XR1 Lite)
 - Embedded device with USB support (e.g., Raspberry Pi)
 - Arduino or microcontroller capable of sending mouse HID packets
-- HDMI cables
 
 **Software Components:**
 
-1. **Server files**: Run on the Raspberry Pi or embedded device to host the web interface.
+1. **Server files**: Run on the Raspberry Pi to host the web interface.
 2. **Arduino INO file**: Handles mouse input communication to the server PC.
 
 ---
@@ -49,7 +48,7 @@ Scrapyard KVM works by connecting your server PC to a capture card via HDMI. The
 
 1. Clone this repository to your Raspberry Pi:
    ```bash
-   git clone https://github.com/yourusername/scrapyard-kvm.git
+   git clone https://github.com/l1ionelw/scrapyard-kvm.git
    cd scrapyard-kvm
 2. Install necessary dependencies
     ```bash
@@ -62,12 +61,13 @@ Scrapyard KVM works by connecting your server PC to a capture card via HDMI. The
     ```
 4. Navigate to the raspberry pi IP address at port 5000 in your browser (find IP using ```ip a```)
     ```bash
-    https://<raspberrypi-ip>:5000
-    https://192.168.1.20:5000
+    http://<raspberrypi-ip>:5000
+    For example local IP is 192.168.1.20: 
+    http://192.168.1.20:5000
     ```
-### 2. Arduino Setup
+### 2. Arduino Setup (WIP)
 
-1. Open the scrapyard\_kvm.ino file in the Arduino IDE.
+1. Open the scrapyard\_kvm.ino file in the Arduino IDE. (WIP)
 
 2. Upload it to your Arduino or HID-capable microcontroller.
 
@@ -92,6 +92,6 @@ Web interface allows you to see capture card output just like if you had a monit
 
 
 ### Acknowledgements
-Big thanks to chatgpt, gemini, and claude. Decreased coding time from a week to an hour :)
+Big thanks to chatgpt, gemini, and claude. Decreased coding time from a week to an hour :) I will thirst myself for 32 days to pay for my sins.
 
 Thank you OpenCV. Donate here: https://opencv.org/support/
