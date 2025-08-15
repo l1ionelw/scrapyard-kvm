@@ -1,0 +1,86 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ camera_name }} - Live Stream</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            color: #fff;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+        #stream {
+            width: 100vw;
+            height: 100vh;
+            object-fit: contain;
+        }
+        #info {
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 16px;
+            z-index: 10;
+            opacity: 0.8;
+            transition: opacity 0.3s;
+        }
+        #info:hover {
+            opacity: 1;
+        }
+        .status { color: #4CAF50; }
+        .error { color: #f44336; }
+    </style>
+</head>
+<body>
+    <img id="stream" src="/video_feed" alt="Live Stream from {{ camera_name }}">
+    <div id="info" {% if not show_text %}style="display:none;"{% endif %}>
+        <div><strong>{{ camera_name }}</strong></div>
+        <div id="status-indicator" class="status">● LIVE</div>
+        <div>{{ broadcast_resolution }}</div>
+    </div>
+
+    <script>
+        const streamImg = document.getElementById('stream');
+        const statusIndicator = document.getElementById('status-indicator');
+
+        streamImg.onerror = function() {
+            statusIndicator.className = 'error';
+            statusIndicator.innerHTML = '● CONNECTION LOST';
+            // The browser will automatically try to reconnect to the stream
+        };
+
+        streamImg.onload = function() {
+            statusIndicator.className = 'status';
+            statusIndicator.innerHTML = '● LIVE';
+        };
+
+        function setScaling() {
+            if (localStorage.getItem('unlocked_scaling') === 'true') {
+                streamImg.style.objectFit = 'fill';
+            } else {
+                streamImg.style.objectFit = 'contain';
+            }
+        }
+
+        // Set initial scaling
+        setScaling();
+
+        // Listen for changes from other tabs
+        window.addEventListener('storage', function(event) {
+            if (event.key === 'unlocked_scaling') {
+                setScaling();
+            }
+        });
+    </script>
+    </script>
+</body>
+</html>

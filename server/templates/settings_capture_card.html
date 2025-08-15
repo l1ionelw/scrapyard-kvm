@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings PROD</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            color: #333;
+            margin: 20px;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        form {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        label {
+            font-weight: bold;
+        }
+
+        select,
+        input[type=checkbox] {
+            margin-left: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .btn {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Settings</h1>
+    <form action="/save_settings" method="post">
+        <div class="form-group">
+            <label for="resolution">Resolution</label>
+                <select name="resolution" id="resolution">
+                    <option value="1280x720" {% if config.resolution == '1280x720' %}selected{% endif %}>1280x720 (720p, 16:9)</option>
+                    <option value="720x480" {% if config.resolution == '720x480' %}selected{% endif %}>720x480 (480p, 16:9)</option>
+                    <option value="720x576" {% if config.resolution == '720x576' %}selected{% endif %}>720x576 (576p, 16:9)</option>
+                    <option value="640x480" {% if config.resolution == '640x480' %}selected{% endif %}>640x480 (VGA, 4:3)</option>
+                </select>
+            <p>Current resolution: {{ current_resolution }}</p>
+        </div>
+        <div class="form-group">
+            <label for="flip_camera">Flip Camera:</label>
+            <input type="checkbox" name="flip_camera" id="flip_camera" value="true" {% if config.flip_camera %}checked{%
+                endif %}>
+        </div>
+        <div class="form-group">
+            <label for="show_text">Show Text:</label>
+            <input type="checkbox" name="show_text" id="show_text" value="true" {% if config.show_text %}checked{% endif
+                %}>
+        </div>
+        <div class="form-group">
+            <label for="unlocked_scaling">Unlocked Scaling:</label>
+            <input type="checkbox" name="unlocked_scaling" id="unlocked_scaling" value="true" {% if config.unlocked_scaling %}checked{% endif %}>
+        </div>
+        <button type="submit" class="btn">Save Settings</button>
+    </form>
+
+    <script>
+        const unlockedScalingCheckbox = document.getElementById('unlocked_scaling');
+
+        unlockedScalingCheckbox.addEventListener('change', function() {
+            localStorage.setItem('unlocked_scaling', this.checked);
+        });
+
+        // Set initial state
+        const savedScaling = localStorage.getItem('unlocked_scaling');
+        if (savedScaling !== null) {
+            unlockedScalingCheckbox.checked = savedScaling === 'true';
+        }
+    </script>
+</body>
+
+</html>
