@@ -9,7 +9,7 @@ import numpy as np
 # Env variable OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS = 0 on some devices for faster camera startup
 
 # --- Configuration ---
-CAMERA_INDEX = 1  # Change this to your capture card's index (e.g., 0, 1, 2)
+CAMERA_INDEX = 0  # Change this to your capture card's index (e.g., 0, 1, 2)
 CAMERA_NAME = "Capture Card Stream"  # A descriptive name for your stream
 JPEG_QUALITY = 85  # Image quality (0-100), higher is better quality but more data
 IDLE_TIMEOUT = 5  # Seconds to wait before stopping the camera when no one is watching
@@ -213,6 +213,17 @@ def show_video():
         height = int(camera.get(cv2.CAP_PROP_FRAME_HEIGHT))
         fps = camera.get(cv2.CAP_PROP_FPS)
     return render_template("templates/index.html", camera_name=CAMERA_NAME, show_text=config['show_text'], broadcast_resolution=f"{width}x{height}@{fps}")
+
+@app.route('/luigi')
+def test_keyboard():
+    return render_template("templates/test_simple_keyboard_typing.html")
+
+@app.route('/luigi-better')
+def test_keyboard_better():
+    return render_template("templates/test_keyboard_passthrough.html")
+@app.route('/control-plane')
+def test_control_plane():
+    return render_template("templates/test_control_plane.html")
 
 def get_config():
     try:

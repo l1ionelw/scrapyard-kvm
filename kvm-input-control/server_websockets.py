@@ -70,6 +70,7 @@ def key_press_release(key, modifiers=[]):
     time.sleep(0.01)
     write_keyboard(0, [])           # release
 
+
 def type_text(text):
     """Type simple ASCII text (blocking). Extend for more symbols as needed."""
     for ch in text:
@@ -172,8 +173,8 @@ def ensure_devices():
 
 async def async_main():
     parser = argparse.ArgumentParser(description="WebSocket HID server")
-    parser.add_argument("--host", default="0.0.0.0", help="Bind host (default 0.0.0.0)")
-    parser.add_argument("--port", type=int, default=5555, help="Bind port (default 5555)")
+    parser.add_argument("--host", default="raspberrypi.local", help="Bind host (default raspberrypi.local)")
+    parser.add_argument("--port", type=int, default=8765, help="Bind port (default 8765)")
     parser.add_argument("--path", default="/", help="WebSocket path (default /)")
     args = parser.parse_args()
 

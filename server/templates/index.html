@@ -81,6 +81,57 @@
             }
         });
     </script>
+    <script>
+        const body = document.querySelector('body');
+
+        body.addEventListener('click', () => {
+            body.requestPointerLock();
+        });
+
+        document.addEventListener('pointerlockchange', () => {
+            if (document.pointerLockElement === body) {
+                console.log('Pointer locked');
+            } else {
+                console.log('Pointer unlocked');
+            }
+        });
+
+        document.addEventListener('mousemove', (event) => {
+            if (document.pointerLockElement === body) {
+                console.log('Mouse movement:', event.movementX, event.movementY);
+            }
+        });
+
+        document.addEventListener('mousedown', (event) => {
+            if (document.pointerLockElement === body) {
+                if (event.button === 0) {
+                    console.log('Left mouse button clicked');
+                } else if (event.button === 2) {
+                    console.log('Right mouse button clicked');
+                }
+            }
+        });
+
+        document.addEventListener('wheel', (event) => {
+            if (document.pointerLockElement === body) {
+                console.log('Mouse wheel scrolled:', event.deltaY);
+            }
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (document.pointerLockElement === body) {
+                console.log('Key down:', event.key);
+                if (event.key === 'Tab' || event.key === 'Meta') {
+                    event.preventDefault();
+                }
+            }
+        });
+
+        document.addEventListener('keyup', (event) => {
+            if (document.pointerLockElement === body) {
+                console.log('Key up:', event.key);
+            }
+        });
     </script>
 </body>
 </html>

@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Keyboard + Mouse WebSocket Client</title>
+  <style>
+    #mouseLockBtn { position: fixed; top: 12px; left: 12px; z-index: 9999; }
+  </style>
+</head>
+<body>
+<button id="mouseLockBtn">Enable Mouse Capture</button>
+<script>
+/* ---------------- HID map ---------------- */
+const HIDCodeMap = {
+  // Letters
+  'KeyA':0x04,'KeyB':0x05,'KeyC':0x06,'KeyD':0x07,'KeyE':0x08,'KeyF':0x09,'KeyG':0x0A,'KeyH':0x0B,
+  'KeyI':0x0C,'KeyJ':0x0D,'KeyK':0x0E,'KeyL':0x0F,'KeyM':0x10,'KeyN':0x11,'KeyO':0x12,'KeyP':0x13,
+  'KeyQ':0x14,'KeyR':0x15,'KeyS':0x16,'KeyT':0x17,'KeyU':0x18,'KeyV':0x19,'KeyW':0x1A,'KeyX':0x1B,
+  'KeyY':0x1C,'KeyZ':0x1D,
+  // Numbers (top row)
+  'Digit1':0x1E,'Digit2':0x1F,'Digit3':0x20,'Digit4':0x21,'Digit5':0x22,'Digit6':0x23,'Digit7':0x24,'Digit8':0x25,'Digit9':0x26,'Digit0':0x27,
+  // Enter, Escape, Backspace, Tab, Space
+  'Enter':0x28,'Escape':0x29,'Backspace':0x2A,'Tab':0x2B,'Space':0x2C,
+  // Symbols
+  'Minus':0x2D,'Equal':0x2E,'BracketLeft':0x2F,'BracketRight':0x30,'Backslash':0x31,'Semicolon':0x33,
+  'Quote':0x34,'Backquote':0x35,'Comma':0x36,'Period':0x37,'Slash':0x38,
+  // Function keys
+  'F1':0x3A,'F2':0x3B,'F3':0x3C,'F4':0x3D,'F5':0x3E,'F6':0x3F,'F7':0x40,'F8':0x41,'F9':0x42,'F10':0x43,'F11':0x44,'F12':0x45,
+  // Arrows + Delete
+  'ArrowRight':0x4F,'ArrowLeft':0x50,'ArrowDown':0x51,'ArrowUp':0x52,'Delete':0x4C,
+  // Modifier bitmasks (your server expects these)
+  'ControlLeft':0x01,'ShiftLeft':0x02,'AltLeft':0x04,'MetaLeft':0x08,
+  'ControlRight':0x10,'ShiftRight':0x20,'AltRight':0x40,'MetaRight':0x80,
+  // Numpad
+  'Numpad0':0x62,'Numpad1':0x59,'Numpad2':0x5A,'Numpad3':0x5B,'Numpad4':0x5C,'Numpad5':0x5D,'Numpad6':0x5E,'Numpad7':0x5F,'Numpad8':0x60,'Numpad9':0x61,
+  'NumpadAdd':0x57,'NumpadSubtract':0x56,'NumpadMultiply':0x55,'NumpadDivide':0x54,'NumpadDecimal':0x63,'NumpadEnter':0x58
+};
+
+/* ---------------- WebSocket ---------------- */
+const ws = new WebSocket("ws://raspberrypi.local:5000");
+ws.onopen = () => console.log("Connected to Pi HID server");
+ws.onmessage = (event) => {
+  try { console.log("Server response:", JSON.parse(event.data)); }
+  catch { console.log("Server response (raw):", event.data); }
+};
+ws.onerror = (e) => console.error("WS error:", e);
+ws.onclose = () => console.log("WS closed");
+
+function sendJSON(obj){
+  if (ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify(obj));
+  } else {
+    console.warn("WS not open; dropping", obj);
+  }
+}
+
+/* ============== KEYBOARD ============== */
+let heldModifiers = new Set();   // numbers (modifier bit values)
+let heldNormalKeys = new Set();  // numbers (HID usage IDs)
+
+const modifierCodes = new Set([
+  "ControlLeft","ControlRight","ShiftLeft","ShiftRight","AltLeft","AltRight","MetaLeft","MetaRight"
+]);
+
+function sendKeyStroke(normalKey /* number */) {
+  sendJSON({
+    type: "KEYBOARD",
+    action: "PRESS",
+    key: normalKey,                 // number
+    modifiers: Array.from(heldModifiers) // numbers
+  });
+  // Server auto-releases; clear local state
+  heldModifiers.clear();
+  heldNormalKeys.clear();
+}
+
+document.addEventListener("keydown", (event) => {
+  if (event.repeat) return;
+  const code = event.code;
+  const hid = HIDCodeMap[code];
+  if (hid === undefined) return;
+
+  console.log("keydown", event.key, "|", code, "| hid:", hid);
+
+  if (modifierCodes.has(code)) {
+    heldModifiers.add(hid);        // store modifier bit
+  } else {
+    heldNormalKeys.add(hid);       // store normal key
+  }
+}, { capture: true });
+
+document.addEventListener("keyup", (event) => {
+  const code = event.code;
+  const hid = HIDCodeMap[code];
+  if (hid === undefined) return;
+
+  if (modifierCodes.has(code)) {
+    heldModifiers.delete(hid);
+  } else if (heldNormalKeys.has(hid)) {
+    sendKeyStroke(hid);
+  }
+}, { capture: true });
+
+// Optional: simple text passthrough (uncomment if you want TYPE mode instead)
+// document.addEventListener("keydown", (e) => {
+//   if (e.key && e.key.length === 1) {
+//     sendJSON({ type: "KEYBOARD", action: "TYPE", key: e.key });
+//     e.preventDefault();
+//   }
+// }, { capture: true });
+
+/* ============== MOUSE (pointer lock) ============== */
+const btn = document.getElementById("mouseLockBtn");
+btn.addEventListener("click", () => {
+  const el = document.body;
+  try { el.requestPointerLock && el.requestPointerLock({ unadjustedMovement: true }); }
+  catch { el.requestPointerLock && el.requestPointerLock(); }
+});
+
+function sendMousePayload(obj){ sendJSON(obj); }
+
+function onPointerLockChange() {
+  const locked = (document.pointerLockElement === document.body);
+  btn.style.display = locked ? "none" : "";
+  if (locked) attachMouseListeners(); else detachMouseListeners();
+}
+document.addEventListener("pointerlockchange", onPointerLockChange);
+document.addEventListener("pointerlockerror", () => console.error("Pointer lock error"));
+
+function onContextMenu(e){ e.preventDefault(); }
+function onMouseMove(e){
+  const dx = e.movementX || 0, dy = e.movementY || 0;
+  if (dx || dy) sendMousePayload({ type:"MOUSE", action:"MOVE", key: `${dx}|${dy}` });
+  e.preventDefault();
+}
+function onMouseDown(e){
+  if (e.button === 0) sendMousePayload({ type:"MOUSE", action:"CLICK", key:"LCLICK" });
+  else if (e.button === 2) sendMousePayload({ type:"MOUSE", action:"CLICK", key:"RCLICK" });
+  e.preventDefault();
+}
+function onWheel(e){
+  const dir = e.deltaY > 0 ? 10 : -10;
+  sendMousePayload({ type:"MOUSE", action:"SCROLL", key: String(dir) });
+  e.preventDefault();
+}
+function attachMouseListeners(){
+  window.addEventListener("mousemove", onMouseMove, true);
+  window.addEventListener("mousedown", onMouseDown, true);
+  window.addEventListener("contextmenu", onContextMenu, { capture:true });
+  window.addEventListener("wheel", onWheel, { passive:false, capture:true });
+}
+function detachMouseListeners(){
+  window.removeEventListener("mousemove", onMouseMove, true);
+  window.removeEventListener("mousedown", onMouseDown, true);
+  window.removeEventListener("contextmenu", onContextMenu, { capture:true });
+  window.removeEventListener("wheel", onWheel, { capture:true });
+}
+</script>
+</body>
+</html>

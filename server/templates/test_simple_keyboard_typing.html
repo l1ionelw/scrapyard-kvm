@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<script>
+    const ws = new WebSocket("ws://raspberrypi.local:5000");
+
+    ws.onopen = () => console.log("Connected to Pi HID server");
+    ws.onmessage = (event) => {
+        try {
+            const data = JSON.parse(event.data);
+            console.log("Server response:", data);
+        } catch {
+            console.log("Server response (raw):", event.data);
+        }
+    };
+
+    ws.onerror = (e) => console.error("WS error:", e);
+    ws.onclose = () => console.log("WS closed");
+    document.addEventListener("keydown", (e) => {
+        // ignore non-printables like Enter, ArrowRight, etc.
+        if (e.key && e.key.length === 1) {
+            // send exactly what the user typed: 'a', 'A', ';', etc.
+            ws.send(JSON.stringify({
+                type: "KEYBOARD",
+                action: "TYPE",
+                key: e.key    // single-character string
+            }));
+            e.preventDefault();
+            // optional: prevent default so the page doesn’t type into inputs
+            // e.preventDefault();
+        }
+    }, { capture: true });
+
+    // Optional: handle IME/accents/emojis more reliably:
+    document.addEventListener("beforeinput", (e) => {
+        if (e.data && e.data.length > 0) {
+            // e.data may be multiple code points (e.g., emoji); send as-is
+            sendJSON({
+                type: "KEYBOARD",
+                action: "TEXT",
+                text: e.data
+            });
+            // e.preventDefault(); // uncomment to prevent inserting into page
+        }
+    });
+
+    // Focus helper so keystrokes go to the page
+    document.getElementById("focus").addEventListener("click", () => {
+        document.body.tabIndex = 0;
+        document.body.focus();
+    });
+</script>
+
+<body>
+
+</body>
+
+</html>
