@@ -283,6 +283,6 @@ if __name__ == '__main__':
     print("=====================================")
     print(f"  {CAMERA_NAME} - Web Streamer")
     print("=====================================")
-    print(f"URL: http://localhost:5000")
+    print(f"URL: http://localhost:5001")
     print("Press Ctrl+C to stop the server.")
-    app.run(host='0.0.0.0', port=5000, threaded=True)
+    app.run(host='0.0.0.0', port=5001, threaded=True)

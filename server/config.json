@@ -1,6 +1,6 @@
 {
     "resolution": "1280x720",
     "flip_camera": false,
-    "show_text": true,
-    "unlocked_scaling": true
+    "show_text": false,
+    "unlocked_scaling": false
 }
