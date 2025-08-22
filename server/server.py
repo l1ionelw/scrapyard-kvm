@@ -214,6 +214,21 @@ def show_video():
         fps = camera.get(cv2.CAP_PROP_FPS)
     return render_template("templates/index.html", camera_name=CAMERA_NAME, show_text=config['show_text'], broadcast_resolution=f"{width}x{height}@{fps}")
 
+@app.route('/mario-better')
+def show_video_better():
+    """Render the main streaming page."""
+    global camera
+    config = get_config()
+    width = "0"
+    height = "0"
+    fps = "0"
+    if camera: 
+        width  = int(camera.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(camera.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        fps = camera.get(cv2.CAP_PROP_FPS)
+    return render_template("templates/index-with-passthrough.html", camera_name=CAMERA_NAME, show_text=config['show_text'], broadcast_resolution=f"{width}x{height}@{fps}")
+
+
 @app.route('/luigi')
 def test_keyboard():
     return render_template("templates/test_simple_keyboard_typing.html")

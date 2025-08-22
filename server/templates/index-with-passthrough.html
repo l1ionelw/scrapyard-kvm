@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ camera_name }} - Live Stream</title>
+    <style>
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            color: #fff;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+
+        #stream {
+            width: 100vw;
+            height: 100vh;
+            object-fit: contain;
+        }
+
+        #info {
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 16px;
+            z-index: 10;
+            opacity: 0.8;
+            transition: opacity 0.3s;
+        }
+
+        #info:hover {
+            opacity: 1;
+        }
+
+        .status {
+            color: #4CAF50;
+        }
+
+        .error {
+            color: #f44336;
+        }
+
+        #mouseLockBtn {
+            position: fixed;
+            top: 15px;
+            right: 15px;
+            z-index: 9999;
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+
+        #mouseLockBtn:hover {
+            background-color: #45a049;
+        }
+
+        #wsStatus {
+            position: fixed;
+            bottom: 15px;
+            left: 15px;
+            z-index: 9999;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-weight: bold;
+            font-size: 14px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        #mouseLockBtn.hidden {
+            display: none !important;
+        }
+
+        #wsStatus.hidden {
+            display: none !important;
+        }
+
+        .ws-connecting {
+            background-color: #ffa500;
+            color: white;
+            border: 2px solid #ff8c00;
+        }
+
+        .ws-connected {
+            background-color: #4caf50;
+            color: white;
+            border: 2px solid #45a049;
+        }
+
+        .ws-disconnected {
+            background-color: #f44336;
+            color: white;
+            border: 2px solid #da190b;
+        }
+
+        .ws-error {
+            background-color: #9c27b0;
+            color: white;
+            border: 2px solid #7b1fa2;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.05);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        #errorLog {
+            position: fixed;
+            bottom: 15px;
+            right: 15px;
+            z-index: 9999;
+            background-color: rgba(244, 67, 54, 0.9);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            max-width: 300px;
+            display: none;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+</head>
+
+<body>
+    <img id="stream" src="/video_feed" alt="Live Stream from {{ camera_name }}">
+
+    <div id="info" {% if not show_text %}style="display:none;" {% endif %}>
+        <div><strong>{{ camera_name }}</strong></div>
+        <div id="status-indicator" class="status">● LIVE</div>
+        <div>{{ broadcast_resolution }}</div>
+    </div>
+
+    <button id="mouseLockBtn" {% if not show_text %}class="hidden" {% endif %}>Enable Mouse Control</button>
+    <div id="wsStatus" class="ws-connecting {% if not show_text %}hidden{% endif %}">Connecting...</div>
+    <div id="errorLog"></div>
+
+    <script>
+        /* ---------------- HID map ---------------- */
+        const HIDCodeMap = {
+            // Letters
+            'KeyA': 0x04, 'KeyB': 0x05, 'KeyC': 0x06, 'KeyD': 0x07, 'KeyE': 0x08, 'KeyF': 0x09, 'KeyG': 0x0A, 'KeyH': 0x0B,
+            'KeyI': 0x0C, 'KeyJ': 0x0D, 'KeyK': 0x0E, 'KeyL': 0x0F, 'KeyM': 0x10, 'KeyN': 0x11, 'KeyO': 0x12, 'KeyP': 0x13,
+            'KeyQ': 0x14, 'KeyR': 0x15, 'KeyS': 0x16, 'KeyT': 0x17, 'KeyU': 0x18, 'KeyV': 0x19, 'KeyW': 0x1A, 'KeyX': 0x1B,
+            'KeyY': 0x1C, 'KeyZ': 0x1D,
+            // Numbers (top row)
+            'Digit1': 0x1E, 'Digit2': 0x1F, 'Digit3': 0x20, 'Digit4': 0x21, 'Digit5': 0x22, 'Digit6': 0x23, 'Digit7': 0x24, 'Digit8': 0x25, 'Digit9': 0x26, 'Digit0': 0x27,
+            // Enter, Escape, Backspace, Tab, Space
+            'Enter': 0x28, 'Escape': 0x29, 'Backspace': 0x2A, 'Tab': 0x2B, 'Space': 0x2C,
+            // Symbols
+            'Minus': 0x2D, 'Equal': 0x2E, 'BracketLeft': 0x2F, 'BracketRight': 0x30, 'Backslash': 0x31, 'Semicolon': 0x33,
+            'Quote': 0x34, 'Backquote': 0x35, 'Comma': 0x36, 'Period': 0x37, 'Slash': 0x38,
+            // Function keys
+            'F1': 0x3A, 'F2': 0x3B, 'F3': 0x3C, 'F4': 0x3D, 'F5': 0x3E, 'F6': 0x3F, 'F7': 0x40, 'F8': 0x41, 'F9': 0x42, 'F10': 0x43, 'F11': 0x44, 'F12': 0x45,
+            // Arrows + Delete
+            'ArrowRight': 0x4F, 'ArrowLeft': 0x50, 'ArrowDown': 0x51, 'ArrowUp': 0x52, 'Delete': 0x4C,
+            // Modifier bitmasks
+            'ControlLeft': 0x01, 'ShiftLeft': 0x02, 'AltLeft': 0x04, 'MetaLeft': 0x08,
+            'ControlRight': 0x10, 'ShiftRight': 0x20, 'AltRight': 0x40, 'MetaRight': 0x80,
+            // Numpad
+            'Numpad0': 0x62, 'Numpad1': 0x59, 'Numpad2': 0x5A, 'Numpad3': 0x5B, 'Numpad4': 0x5C, 'Numpad5': 0x5D, 'Numpad6': 0x5E, 'Numpad7': 0x5F, 'Numpad8': 0x60, 'Numpad9': 0x61,
+            'NumpadAdd': 0x57, 'NumpadSubtract': 0x56, 'NumpadMultiply': 0x55, 'NumpadDivide': 0x54, 'NumpadDecimal': 0x63, 'NumpadEnter': 0x58
+        };
+
+        /* ---------------- Stream functionality ---------------- */
+        const streamImg = document.getElementById('stream');
+        const statusIndicator = document.getElementById('status-indicator');
+
+        streamImg.onerror = function () {
+            statusIndicator.className = 'error';
+            statusIndicator.innerHTML = '● CONNECTION LOST';
+        };
+
+        streamImg.onload = function () {
+            statusIndicator.className = 'status';
+            statusIndicator.innerHTML = '● LIVE';
+        };
+
+        function setScaling() {
+            // Note: localStorage not available in Claude artifacts, using sessionStorage as fallback
+            try {
+                if (localStorage.getItem('unlocked_scaling') === 'true') {
+                    streamImg.style.objectFit = 'fill';
+                } else {
+                    streamImg.style.objectFit = 'contain';
+                }
+            } catch {
+                // Fallback for environments where localStorage isn't available
+                if (sessionStorage.getItem('unlocked_scaling') === 'true') {
+                    streamImg.style.objectFit = 'fill';
+                } else {
+                    streamImg.style.objectFit = 'contain';
+                }
+            }
+        }
+
+        setScaling();
+
+        /* ---------------- WebSocket with Status Display ---------------- */
+        const wsStatusEl = document.getElementById('wsStatus');
+        const errorLogEl = document.getElementById('errorLog');
+        let errorTimeout = null;
+
+        function updateWSStatus(status, message) {
+            if (showText) {
+                wsStatusEl.className = `ws-${status}`;
+                wsStatusEl.textContent = message;
+            }
+        }
+
+        function showError(message) {
+            errorLogEl.textContent = message;
+            errorLogEl.style.display = 'block';
+
+            if (errorTimeout) {
+                clearTimeout(errorTimeout);
+            }
+
+            errorTimeout = setTimeout(() => {
+                errorLogEl.style.display = 'none';
+            }, 5000);
+        }
+
+        const ws = new WebSocket("ws://192.168.1.29:5000");
+
+        ws.onopen = () => {
+            console.log("Connected to Pi HID server");
+            updateWSStatus('connected', '🟢 Connected');
+        };
+
+        ws.onmessage = (event) => {
+            try {
+                console.log("Server response:", JSON.parse(event.data));
+            } catch {
+                console.log("Server response (raw):", event.data);
+            }
+        };
+
+        ws.onerror = (e) => {
+            console.error("WS error:", e);
+            updateWSStatus('error', '🔴 Connection Error');
+            showError('WebSocket connection error occurred');
+        };
+
+        ws.onclose = (event) => {
+            console.log("WS closed", event.code, event.reason);
+            updateWSStatus('disconnected', '🔴 Disconnected');
+            if (event.code !== 1000) {
+                showError(`Connection lost (Code: ${event.code})`);
+            }
+        };
+
+        function sendJSON(obj) {
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify(obj));
+            } else {
+                console.warn("WS not open; dropping", obj);
+                updateWSStatus('error', '🟡 Send Failed');
+                showError(`Cannot send: WebSocket is ${ws.readyState === WebSocket.CONNECTING ? 'connecting' : 'closed'}`);
+            }
+        }
+
+        /* ============== KEYBOARD ============== */
+        let currentModifiers = new Set();
+        let pressedKeys = new Set();
+
+        const modifierCodes = new Set([
+            "ControlLeft", "ControlRight", "ShiftLeft", "ShiftRight", "AltLeft", "AltRight", "MetaLeft", "MetaRight"
+        ]);
+
+        function getModifierBitmask() {
+            return Array.from(currentModifiers);
+        }
+
+        function sendKeyStroke(normalKey) {
+            sendJSON({
+                type: "KEYBOARD",
+                action: "PRESS",
+                key: normalKey,
+                modifiers: getModifierBitmask()
+            });
+        }
+
+        document.addEventListener("keydown", (event) => {
+            if (event.repeat) return;
+
+            const code = event.code;
+            const hid = HIDCodeMap[code];
+            if (hid === undefined) return;
+
+            if (pressedKeys.has(code)) return;
+            pressedKeys.add(code);
+
+            if (modifierCodes.has(code)) {
+                currentModifiers.add(hid);
+            } else {
+                sendKeyStroke(hid);
+            }
+
+            event.preventDefault();
+        }, { capture: true });
+
+        document.addEventListener("keyup", (event) => {
+            const code = event.code;
+            const hid = HIDCodeMap[code];
+            if (hid === undefined) return;
+
+            pressedKeys.delete(code);
+
+            if (modifierCodes.has(code)) {
+                currentModifiers.delete(hid);
+            }
+
+            event.preventDefault();
+        }, { capture: true });
+
+        document.addEventListener("keydown", (event) => {
+            if (event.code === 'KeyA' && event.ctrlKey && event.altKey && event.shiftKey) {
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen();
+                } else {
+                    document.exitFullscreen();
+                }
+                event.preventDefault();
+            }
+        });
+
+        /* ============== MOUSE ============== */
+        const btn = document.getElementById("mouseLockBtn");
+
+        // Check if button is hidden (indicating show_text is false)
+        const showText = !btn.classList.contains('hidden');
+
+        // If show_text is false, enable click-to-capture on the body
+        if (!showText) {
+            document.body.addEventListener("click", () => {
+                const el = document.body;
+                try {
+                    el.requestPointerLock && el.requestPointerLock({ unadjustedMovement: true });
+                } catch {
+                    el.requestPointerLock && el.requestPointerLock();
+                }
+            });
+        } else {
+            // Original button behavior when show_text is true
+            btn.addEventListener("click", () => {
+                const el = document.body;
+                try {
+                    el.requestPointerLock && el.requestPointerLock({ unadjustedMovement: true });
+                } catch {
+                    el.requestPointerLock && el.requestPointerLock();
+                }
+            });
+        }
+
+        function sendMousePayload(obj) {
+            sendJSON(obj);
+        }
+
+        /* ---- Mouse movement batching ---- */
+        let moveBatchDX = 0;
+        let moveBatchDY = 0;
+        let moveBatchIntervalId = null;
+        const MOVE_BATCH_MS = 50;
+
+        function startMoveBatcher() {
+            if (moveBatchIntervalId != null) return;
+            moveBatchIntervalId = setInterval(() => {
+                flushMoveBatch();
+            }, MOVE_BATCH_MS);
+        }
+
+        function stopMoveBatcher() {
+            if (moveBatchIntervalId != null) {
+                clearInterval(moveBatchIntervalId);
+                moveBatchIntervalId = null;
+            }
+        }
+
+        function flushMoveBatch() {
+            if (moveBatchDX !== 0 || moveBatchDY !== 0) {
+                if (moveBatchDX > 126) { moveBatchDX = 126 }
+                if (moveBatchDX < -126) { moveBatchDX = -126 }
+                if (moveBatchDY > 126) { moveBatchDY = 126 }
+                if (moveBatchDY < -126) { moveBatchDY = -126 }
+                sendMousePayload({ type: "MOUSE", action: "MOVE", key: `${moveBatchDX}|${moveBatchDY}` });
+                moveBatchDX = 0;
+                moveBatchDY = 0;
+            }
+        }
+
+        function onPointerLockChange() {
+            const locked = (document.pointerLockElement === document.body);
+            btn.style.display = locked ? "none" : "";
+            if (locked) {
+                attachMouseListeners();
+                startMoveBatcher();
+            } else {
+                flushMoveBatch();
+                stopMoveBatcher();
+                detachMouseListeners();
+            }
+        }
+        document.addEventListener("pointerlockchange", onPointerLockChange);
+        document.addEventListener("pointerlockerror", () => console.error("Pointer lock error"));
+
+        function onContextMenu(e) {
+            e.preventDefault();
+        }
+
+        function onMouseMove(e) {
+            const dx = e.movementX || 0;
+            const dy = e.movementY || 0;
+            const locked = (document.pointerLockElement === document.body);
+
+            if (locked) {
+                if (moveBatchDX > 126 || moveBatchDX < -126 ||
+                    moveBatchDY > 126 || moveBatchDY < -126) {
+                    if (moveBatchDX > 126) { moveBatchDX = 126 }
+                    if (moveBatchDX < -126) { moveBatchDX = -126 }
+                    if (moveBatchDY > 126) { moveBatchDY = 126 }
+                    if (moveBatchDY < -126) { moveBatchDY = -126 }
+                    flushMoveBatch();
+                }
+                moveBatchDX += dx;
+                moveBatchDY += dy;
+            } else {
+                if (dx || dy) sendMousePayload({ type: "MOUSE", action: "MOVE", key: `${dx}|${dy}` });
+            }
+            e.preventDefault();
+        }
+
+        function onMouseDown(e) {
+            if (e.button === 0) sendMousePayload({ type: "MOUSE", action: "CLICK", key: "LCLICK" });
+            else if (e.button === 2) sendMousePayload({ type: "MOUSE", action: "CLICK", key: "RCLICK" });
+            e.preventDefault();
+        }
+
+        function onWheel(e) {
+            const dir = e.deltaY > 0 ? 10 : -10;
+            sendMousePayload({ type: "MOUSE", action: "SCROLL", key: String(dir) });
+            e.preventDefault();
+        }
+
+        function attachMouseListeners() {
+            window.addEventListener("mousemove", onMouseMove, true);
+            window.addEventListener("mousedown", onMouseDown, true);
+            window.addEventListener("contextmenu", onContextMenu, { capture: true });
+            window.addEventListener("wheel", onWheel, { passive: false, capture: true });
+        }
+
+        function detachMouseListeners() {
+            window.removeEventListener("mousemove", onMouseMove, true);
+            window.removeEventListener("mousedown", onMouseDown, true);
+            window.removeEventListener("contextmenu", onContextMenu, { capture: true });
+            window.removeEventListener("wheel", onWheel, { capture: true });
+        }
+    </script>
+</body>
+
+</html>
