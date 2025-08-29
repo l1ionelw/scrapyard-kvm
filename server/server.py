@@ -198,9 +198,9 @@ def generate_frames():
 
 @app.route('/')
 def index():
-    return "nihao"
+    return "Online!"
 
-@app.route('/mario')
+@app.route('/video-only')
 def show_video():
     """Render the main streaming page."""
     global camera
@@ -214,8 +214,9 @@ def show_video():
         fps = camera.get(cv2.CAP_PROP_FPS)
     return render_template("templates/index.html", camera_name=CAMERA_NAME, show_text=config['show_text'], broadcast_resolution=f"{width}x{height}@{fps}")
 
-@app.route('/mario-better')
-def show_video_better():
+
+@app.route('/video-control')
+def show_video_better_main():
     """Render the main streaming page."""
     global camera
     config = get_config()
@@ -226,19 +227,7 @@ def show_video_better():
         width  = int(camera.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(camera.get(cv2.CAP_PROP_FRAME_HEIGHT))
         fps = camera.get(cv2.CAP_PROP_FPS)
-    return render_template("templates/index-with-passthrough.html", camera_name=CAMERA_NAME, show_text=config['show_text'], broadcast_resolution=f"{width}x{height}@{fps}")
-
-
-@app.route('/luigi')
-def test_keyboard():
-    return render_template("templates/test_simple_keyboard_typing.html")
-
-@app.route('/luigi-better')
-def test_keyboard_better():
-    return render_template("templates/test_keyboard_passthrough.html")
-@app.route('/control-plane')
-def test_control_plane():
-    return render_template("templates/test_control_plane.html")
+    return render_template("templates/index-with-passthrough-main.html", camera_name=CAMERA_NAME, show_text=config['show_text'], broadcast_resolution=f"{width}x{height}@{fps}")
 
 def get_config():
     try:

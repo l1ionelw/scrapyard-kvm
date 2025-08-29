@@ -246,7 +246,17 @@
             }, 5000);
         }
 
-        const ws = new WebSocket("ws://192.168.1.29:5000");
+        let wsAddress = localStorage.getItem("keyboard_address");
+
+        // If nothing saved yet, fall back to default
+        if (!wsAddress) {
+            wsAddress = "ws://" + window.location.hostname + ":5000";
+            localStorage.setItem("keyboard_address", wsAddress);
+        }
+
+        // Create WebSocket using saved address
+        console.log("CONNECTING TO: " + wsAddress);
+        const ws = new WebSocket(wsAddress);
 
         ws.onopen = () => {
             console.log("Connected to Pi HID server");
@@ -340,15 +350,35 @@
         }, { capture: true });
 
         document.addEventListener("keydown", (event) => {
-            if (event.code === 'KeyA' && event.ctrlKey && event.altKey && event.shiftKey) {
-                if (!document.fullscreenElement) {
-                    document.documentElement.requestFullscreen();
-                } else {
-                    document.exitFullscreen();
-                }
-                event.preventDefault();
-            }
-        });
+    // ctrl + alt + shift + A to fullscreen
+    if (event.code === 'KeyA' && event.ctrlKey && event.altKey && event.shiftKey) {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen();
+        } else {
+            document.exitFullscreen();
+        }
+        event.preventDefault();
+    }
+
+    // alt + r reloads webpage after 1 second
+    if (event.code === 'KeyR' && event.altKey && !event.ctrlKey && !event.shiftKey) {
+        setTimeout(() => {
+            location.reload();
+        }, 1000);
+        event.preventDefault();
+    }
+
+    // alt + e clears all pressed keys and modifiers
+    if (event.code === 'KeyE' && event.altKey && !event.ctrlKey && !event.shiftKey) {
+        currentModifiers.clear();
+        pressedKeys.clear();
+
+        console.log("🔄 Cleared all pressed keys and modifiers");
+
+        event.preventDefault();
+    }
+});
+
 
         /* ============== MOUSE ============== */
         const btn = document.getElementById("mouseLockBtn");
