@@ -6,6 +6,9 @@ import json
 import logging
 from queue import Queue
 import numpy as np
+import os
+import importlib
+
 # Env variable OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS = 0 on some devices for faster camera startup
 
 # --- Configuration ---
@@ -29,7 +32,7 @@ capture_thread = None
 active_viewers = 0
 viewer_lock = threading.Lock()
 REINIT_CAMERA = False
-
+loaded_plugins = []
 
 
 def camera_manager():
@@ -179,7 +182,7 @@ def generate_frames():
             if latest_frame:
                 yield (
                     b'--frame\r\n'
-                    b'Content-Type: image/jpeg\r\n\r\n' +
+                    b'Content-Type: image/jpeg\r\n\r\n' + 
                     latest_frame +
                     b'\r\n'
                 )
@@ -199,6 +202,10 @@ def generate_frames():
 @app.route('/')
 def index():
     return "Online!"
+
+@app.route('/plugins')
+def list_plugins():
+    return jsonify(loaded_plugins)
 
 @app.route('/video-only')
 def show_video():
@@ -275,10 +282,32 @@ def video_feed():
     """The video streaming route."""
     return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
+def load_plugins(app):
+    global loaded_plugins
+    plugins_dir = "plugins"
+    if not os.path.exists(plugins_dir):
+        return
+
+    for filename in os.listdir(plugins_dir):
+        if filename.endswith(".py") and filename != "__init__.py":
+            module_name = f"plugins.{filename[:-3]}"
+            try:
+                module = importlib.import_module(module_name)
+                if hasattr(module, "register"):
+                    # Pass a function to get the latest frame and active viewers
+                    module.register(app, lambda: latest_frame, lambda: active_viewers)
+                    loaded_plugins.append(filename)
+                    print(f"Loaded plugin: {filename}")
+            except Exception as e:
+                print(f"Failed to load plugin {filename}: {e}")
+
 if __name__ == '__main__':
     # Disable werkzeug's default logging to keep the console clean
     log = logging.getLogger('werkzeug')
     log.setLevel(logging.ERROR)
+
+    # Load plugins
+    load_plugins(app)
 
     # Start the camera manager thread
     manager_thread = threading.Thread(target=camera_manager, daemon=True)
